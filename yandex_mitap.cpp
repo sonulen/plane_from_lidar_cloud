@@ -8,6 +8,7 @@
 #include <vector>
 #include <stdlib.h>     /* srand, rand */
 #include <math.h>
+#include <cmath> // для round
 
 struct point_3d {
     float x = 0;
@@ -62,18 +63,18 @@ void find_random_points (point_3d& p1, point_3d& p2, point_3d& p3,
     p3 = cloud[num3];
 }
 
-double distance_to_dot (plane_t plane, point_3d point) {
-    float p = plane.A * point.x + plane.B * point.y +
-            plane.C * point.z + plane.D;
-    p /= sqrt(plane.A * plane.A + plane.B * plane.B + plane.C * plane.C);
-    return abs(p);
+double distance_to_dot (const plane_t& plane, const point_3d& point) {
+    float p = std::fabs(plane.A * point.x + plane.B * point.y +
+            plane.C * point.z + plane.D);
+    p /= sqrtf(plane.A * plane.A + plane.B * plane.B + plane.C * plane.C);
+    return p;
 }
 
 int calc_inliers_points (const std::vector<point_3d>& cloud,
                          const float& threshold, const plane_t& plane) {
     int result = 0;
     for (auto point : cloud) {
-        if (distance_to_dot ( plane, point ) < threshold) {
+        if (distance_to_dot ( plane, point ) <= threshold) {
             result++;
         }
     }
@@ -81,7 +82,7 @@ int calc_inliers_points (const std::vector<point_3d>& cloud,
 }
 
 plane_t find_plane (const std::vector<point_3d>& cloud,
-                    const double& threshold, int max_iteration,
+                    const float& threshold, int max_iteration,
                     const int goal_inliers) {
     plane_t plane;
 
@@ -96,6 +97,10 @@ plane_t find_plane (const std::vector<point_3d>& cloud,
         find_random_points(p1, p2, p3, cloud);
         plane = abcd (p1, p2, p3);
 
+        if (plane.A == 0 && plane.B == 0 && plane.C == 0) {
+        	continue;
+        }
+
         int ic = calc_inliers_points (cloud, threshold, plane);
 
         if (ic > best_goal) {
@@ -109,7 +114,7 @@ plane_t find_plane (const std::vector<point_3d>& cloud,
 
     // Нормализация
     float prod = 1;
-    if (best_plane.D < 0) {
+    if (best_plane.D > 0) {
         prod = -1;
     }
     prod /= sqrt(best_plane.A * best_plane.A + best_plane.B * best_plane.B
@@ -122,11 +127,16 @@ plane_t find_plane (const std::vector<point_3d>& cloud,
     return best_plane;
 }
 
+float round_num (float value, int n) {
+	int divider = powf(10,n);
+	return (round(value * divider) / divider);
+}
+
 int main() {
     float p = 0;
     int point_count = 0;
     std::vector<point_3d> cloud;
-    int max_iteration = 1000000;
+    int max_iteration = 10000;
 
     std::cin >> p;
     std::cin >> point_count;
@@ -136,15 +146,13 @@ int main() {
         std::cin >> new_point.x >> new_point.y >> new_point.z;
         cloud.push_back(new_point);
     }
-
-
+    
     plane_t plane = find_plane(cloud, p, max_iteration, cloud.size()/2);
 
-    std::cout << plane.A << " "
-            << plane.B << " "
-            << plane.C << " "
-            << plane.D << std::endl;
+    std::cout << round_num(plane.A, 6) << " "
+            << round_num(plane.B, 6) << " "
+            << round_num(plane.C, 6) << " "
+            << round_num(plane.D, 6) << std::endl;
 
     return 0;
 }
-
